@@ -87,11 +87,10 @@ def login_for_access_token(
 def forgot_password(email: EmailStr = Body(..., embed=True), db: Session = Depends(get_db)):
     user = get_user(db, email)
     if not user:
-        # Não informamos que o usuário não existe por segurança
         return {"message": "Se um usuário com esse email existir, um link de recuperação será enviado."}
 
     reset_token = security.create_reset_token(email=email)
-    reset_link = f"http://localhost:8000/reset-password-page?token={reset_token}" # Link para uma página frontend
+    reset_link = f"http://localhost:8000/reset-password-page?token={reset_token}"
 
     print("--- LINK DE RESET DE SENHA (PARA FINS DE DEMONSTRAÇÃO) ---")
     print(reset_link)

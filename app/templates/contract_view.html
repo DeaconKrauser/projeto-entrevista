@@ -91,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     let contentHtml = `<div class="text-gray-700 prose max-w-none">${valueHtml}</div>`;
 
-                    // Personalização extra para obrigações
                     if (key === "obrigações_principais" && typeof data[key] === 'string') {
                         const [contratada, contratante] = data[key].split(/CONTRATANTE:/).map(s => s.trim());
                         contentHtml = `
@@ -102,7 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         `;
                     }
 
-                    // Melhor visual para valores monetários
                     if (key === "valores_monetarios" && Array.isArray(data[key])) {
                         contentHtml = `
                             <ul class="list-disc pl-5 text-gray-800 space-y-1">
