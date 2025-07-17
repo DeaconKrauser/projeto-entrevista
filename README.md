@@ -22,25 +22,37 @@ O projeto é construído sobre uma arquitetura moderna e conteinerizada, garanti
 
 ## 3. Instruções de Instalação e Execução
 
-Para rodar este projeto em seu ambiente local, você precisa ter o `Docker` e o `Docker Compose` instalados.
+Siga os passos abaixo para configurar e rodar o ambiente de desenvolvimento.
 
-**1. Clone o Repositório**
+**1. Instale o Docker e Docker Compose**
+
+O Docker é essencial para rodar este projeto. O Docker Compose orquestra os múltiplos contêineres da nossa aplicação.
+
+* **Para Windows e macOS:**
+    A maneira mais fácil é instalar o **Docker Desktop**, que já inclui o Docker Compose. Baixe-o no site oficial:
+    [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
+
+* **Para Linux:**
+    Siga o guia de instalação oficial para a sua distribuição Linux. O Docker Compose já vem como um plugin na maioria das instalações modernas (`docker compose`).
+    Acesse as instruções em: [https://docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
+
+**2. Clone o Repositório**
 ```bash
-git clone [https://github.com/seu-usuario/seu-repositorio.git](https://github.com/seu-usuario/seu-repositorio.git)
-cd seu-repositorio
+git clone [https://github.com/DeaconKrauser/projeto-entrevista.git](https://github.com/DeaconKrauser/projeto-entrevista.git)
+cd projeto-entrevista
 ```
 
-**2. Crie o Arquivo de Variáveis de Ambiente**
+**3. Crie o Arquivo de Variáveis de Ambiente**
 Copie o arquivo de exemplo `.env.example` para criar seu próprio arquivo `.env`.
 
 ```bash
 cp .env.example .env
 ```
 
-**3. Configure suas Variáveis**
+**4. Configure suas Variáveis**
 Abra o arquivo `.env` com seu editor de texto e preencha as variáveis de ambiente necessárias, especialmente as credenciais do banco de dados e as chaves de API para os serviços de IA.
 
-**4. Suba a Aplicação**
+**5. Suba a Aplicação**
 Com o Docker em execução, utilize o Docker Compose para construir as imagens e iniciar todos os contêineres.
 
 ```bash
@@ -51,14 +63,14 @@ Para rodar em segundo plano (detached mode), use a flag `-d`:
 docker compose up --build -d
 ```
 
-**5. Crie o Primeiro Usuário Administrador**
+**6. Crie o Primeiro Usuário Administrador**
 O primeiro usuário deve ser criado via linha de comando para garantir que ele tenha o papel de `ADMIN`. Execute o comando abaixo, substituindo pelo email e senha desejados:
 
 ```bash
 docker compose exec app python create_admin.py admin@exemplo.com senha_forte_123
 ```
 
-**6. Acesse a Aplicação**
+**7. Acesse a Aplicação**
 Após a conclusão dos comandos, a aplicação estará disponível em: **[http://localhost:8000](http://localhost:8000)**. Você pode se logar com o admin criado ou registrar novos usuários (que terão o papel `USER` por padrão).
 
 ## 4. Exemplos de Uso da API (cURL)
