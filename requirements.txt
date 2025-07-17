@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+redis
+jinja2
+python-multipart
+python-docx
+pypdf2
+google-generativeai>=0.5.0
+fastapi-mail>=1.4.1
+bcrypt==3.2.0

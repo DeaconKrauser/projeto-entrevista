@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div x-data="{ isModalOpen: false }" @keydown.escape.window="isModalOpen = false">
+
+    <div class="flex justify-between items-center mb-6">
+        <h1 id="page-title" class="text-3xl font-bold text-gray-800">Gerenciamento de Registros</h1>
+        <button @click="isModalOpen = true" class="bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 transition-colors">
+            Criar Novo Usuário
+        </button>
+    </div>
+
+    <div x-show="isModalOpen" class="fixed inset-0 z-30 bg-black bg-opacity-50" style="display: none;"></div>
+    <div x-show="isModalOpen" x-transition class="fixed inset-0 z-40 flex items-center justify-center p-4" style="display: none;">
+        <div @click.away="isModalOpen = false" class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-xl font-semibold mb-4">Criar Novo Usuário</h3>
+            <form id="create-user-form">
+                <div class="space-y-4">
+                    <input type="text" id="create-first-name" placeholder="Nome" class="w-full px-3 py-2 border rounded-lg" required>
+                    <input type="text" id="create-last-name" placeholder="Sobrenome" class="w-full px-3 py-2 border rounded-lg" required>
+                    <input type="email" id="create-email" placeholder="Email" class="w-full px-3 py-2 border rounded-lg" required>
+                    <input type="password" id="create-password" placeholder="Senha" class="w-full px-3 py-2 border rounded-lg" required>
+                </div>
+                <div id="create-user-message" class="mt-4 text-center h-6"></div>
+                <div class="mt-6 flex justify-end space-x-4">
+                    <button type="button" @click="isModalOpen = false" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" id="create-user-btn" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">Criar Usuário</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <div id="users-list" class="space-y-4">
+            <p class="text-gray-500 text-center py-4">Carregando usuários...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/'; return; }
+
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const usersList = document.getElementById('users-list');
+    const createUserForm = document.getElementById('create-user-form');
+    const createMessageArea = document.getElementById('create-user-message');
+    const createUserBtn = document.getElementById('create-user-btn');
+
+    const renderUsers = (users) => {
+        usersList.innerHTML = '';
+        if (users.length === 0) {
+            usersList.innerHTML = '<p class="text-gray-500 text-center py-4">Nenhum usuário encontrado.</p>';
+            return;
+        }
+
+        const table = document.createElement('table');
+        table.className = 'min-w-full divide-y divide-gray-200';
+        table.innerHTML = `
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th class="relative px-6 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200"></tbody>
+        `;
+
+        const tbody = table.querySelector('tbody');
+        users.forEach(user => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${user.first_name || ''} ${user.last_name || ''}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.email}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${user.role === 'ADMIN' ? 'text-red-600' : 'text-gray-500'}">${user.role}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <a href="/profile?user_uuid=${user.uuid}" class="text-indigo-600 hover:text-indigo-900">Editar / Ver</a>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        usersList.appendChild(table);
+    }
+
+    const fetchUsers = async () => {
+        usersList.innerHTML = '<p class="text-gray-500 text-center py-4">Carregando usuários...</p>';
+        const response = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!response.ok) {
+            usersList.innerHTML = '<p class="text-red-500 text-center py-4">Você não tem permissão para ver esta página.</p>';
+            return;
+        }
+        const users = await response.json();
+        renderUsers(users);
+    };
+
+    createUserForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        createMessageArea.innerHTML = '';
+        createUserBtn.disabled = true;
+
+        const body = JSON.stringify({
+            first_name: document.getElementById('create-first-name').value,
+            last_name: document.getElementById('create-last-name').value,
+            email: document.getElementById('create-email').value,
+            password: document.getElementById('create-password').value
+        });
+
+        const response = await fetch('/api/admin/users', { method: 'POST', headers, body });
+        const data = await response.json();
+
+        if (response.ok) {
+            createMessageArea.innerHTML = '<p class="text-green-500">Usuário criado com sucesso!</p>';
+            setTimeout(() => {
+                document.querySelector('[x-data]').__x.$data.isModalOpen = false;
+                createMessageArea.innerHTML = '';
+                createUserForm.reset();
+                fetchUsers();
+            }, 1500);
+        } else {
+            createMessageArea.innerHTML = `<p class="text-red-500">${data.detail}</p>`;
+        }
+        createUserBtn.disabled = false;
+    });
+
+    fetchUsers();
+});
+</script>
+{% endblock %}

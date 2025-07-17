@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 id="page-title" class="text-3xl font-bold text-gray-800">Meus Contratos</h1>
+</div>
+
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <div id="all-contracts-list" class="space-y-4">
+        <p class="text-gray-500 text-center py-4">Carregando contratos...</p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/';
+        return;
+    }
+
+    const headers = { 'Authorization': `Bearer ${token}` };
+    const contractList = document.getElementById('all-contracts-list');
+    const pageTitle = document.getElementById('page-title');
+
+    const renderContracts = (contracts) => {
+        contractList.innerHTML = '';
+        if (contracts.length === 0) {
+            contractList.innerHTML = '<p class="text-gray-500 text-center py-4">Nenhum contrato encontrado para este filtro.</p>';
+            return;
+        }
+
+        const table = document.createElement('table');
+        table.className = 'min-w-full divide-y divide-gray-200';
+        table.innerHTML = `
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Arquivo</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                    <th scope="col" class="relative px-6 py-3"><span class="sr-only">Ver</span></th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200"></tbody>
+        `;
+
+        const tbody = table.querySelector('tbody');
+        contracts.forEach(contract => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">${contract.filename}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${contract.status === 'SUCCESS' ? 'bg-green-100 text-green-800' : ''}
+                        ${contract.status === 'ERROR' ? 'bg-red-100 text-red-800' : ''}
+                        ${contract.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : ''}
+                    ">${contract.status}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-500">${new Date(contract.created_at).toLocaleDateString('pt-BR')}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <a href="/contracts/${contract.id}/view" class="text-indigo-600 hover:text-indigo-900">Ver Detalhes</a>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        contractList.appendChild(table);
+    };
+
+    const fetchAllContracts = async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const statusFilter = urlParams.get('status');
+
+        try {
+            const response = await fetch('/api/contracts', { headers });
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                window.location.href = '/';
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error('Falha ao buscar contratos');
+            }
+
+            let contracts = await response.json();
+
+            const titleMap = {
+                'SUCCESS': 'Analisados com Sucesso',
+                'ERROR': 'com Erro',
+                'PENDING': 'Pendentes'
+            };
+
+            if (statusFilter && titleMap[statusFilter]) {
+                pageTitle.textContent = `Meus Contratos ${titleMap[statusFilter]}`;
+                contracts = contracts.filter(c => c.status === statusFilter);
+            }
+
+            renderContracts(contracts);
+
+        } catch (error) {
+            console.error("Erro ao buscar contratos:", error);
+            contractList.innerHTML = '<p class="text-red-500 text-center py-4">Não foi possível carregar os contratos.</p>';
+        }
+    };
+
+    fetchAllContracts();
+});
+</script>
+{% endblock %}

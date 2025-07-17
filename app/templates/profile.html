@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 id="profile-title" class="text-3xl font-bold text-gray-800 mb-6">Minha Conta</h1>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Informações do Perfil</h2>
+        <form id="profile-form">
+            <div class="mb-4">
+                <label for="email" class="block text-gray-700">Email</label>
+                <input type="email" id="email" class="w-full px-3 py-2 border rounded-lg bg-gray-200" disabled>
+            </div>
+            <div class="mb-4">
+                <label for="first_name" class="block text-gray-700">Nome</label>
+                <input type="text" id="first_name" class="w-full px-3 py-2 border rounded-lg">
+            </div>
+            <div class="mb-4">
+                <label for="last_name" class="block text-gray-700">Sobrenome</label>
+                <input type="text" id="last_name" class="w-full px-3 py-2 border rounded-lg">
+            </div>
+            <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">Salvar Informações</button>
+        </form>
+        <div id="profile-message" class="mt-4 h-6"></div>
+    </div>
+    <div id="password-card" class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Alterar Senha</h2>
+        <form id="password-form">
+            <div class="mb-4">
+                <label for="old_password" class="block text-gray-700">Senha Antiga</label>
+                <input type="password" id="old_password" class="w-full px-3 py-2 border rounded-lg" required>
+            </div>
+            <div class="mb-4">
+                <label for="new_password" class="block text-gray-700">Nova Senha</label>
+                <input type="password" id="new_password" class="w-full px-3 py-2 border rounded-lg" required>
+            </div>
+            <button type="submit" class="w-full bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600">Alterar Senha</button>
+        </form>
+        <div id="password-message" class="mt-4 h-6"></div>
+    </div>
+    <div id="admin-actions-card" class="bg-white p-6 rounded-lg shadow-md hidden">
+        <h2 class="text-xl font-semibold mb-4 text-red-600">Ações de Administrador</h2>
+        <div class="space-y-4">
+            <div>
+                <label for="role-select" class="block text-gray-700">Alterar Papel</label>
+                <select id="role-select" class="w-full px-3 py-2 border rounded-lg">
+                    <option value="USER">USER</option>
+                    <option value="ADMIN">ADMIN</option>
+                </select>
+                <button id="change-role-btn" class="mt-2 w-full bg-purple-500 text-white py-2 rounded-lg hover:bg-purple-600">Salvar Papel</button>
+            </div>
+            <hr>
+            <div>
+                 <button id="delete-user-btn" class="w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700">Excluir Usuário</button>
+            </div>
+        </div>
+        <div id="admin-message" class="mt-4 h-6"></div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/'; return; }
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+    const user_uuid_to_edit = '{{ user_uuid_to_edit or "" }}';
+
+    const meResponse = await fetch('/api/users/me', { headers });
+    if (!meResponse.ok) { window.location.href = '/'; return; }
+    const loggedInUser = await meResponse.json();
+    const isAdmin = loggedInUser.role === 'ADMIN';
+
+    const targetUrl = user_uuid_to_edit ? `/api/admin/users/${user_uuid_to_edit}` : '/api/users/me';
+    const targetUserResponse = await fetch(targetUrl, { headers });
+
+    if (!targetUserResponse.ok) {
+        document.getElementById('profile-title').textContent = "Erro ao carregar usuário";
+        return;
+    }
+    const targetUser = await targetUserResponse.json();
+
+    document.getElementById('email').value = targetUser.email;
+    document.getElementById('first_name').value = targetUser.first_name || '';
+    document.getElementById('last_name').value = targetUser.last_name || '';
+
+    if (user_uuid_to_edit) {
+        document.getElementById('profile-title').textContent = `Perfil de ${targetUser.email}`;
+    }
+
+    if (isAdmin && user_uuid_to_edit && loggedInUser.id != targetUser.id) {
+        document.getElementById('admin-actions-card').classList.remove('hidden');
+        document.getElementById('password-card').classList.add('hidden');
+
+        const roleSelect = document.getElementById('role-select');
+        roleSelect.value = targetUser.role;
+
+        document.getElementById('change-role-btn').addEventListener('click', async () => {
+            const res = await fetch(`/api/admin/users/${targetUser.uuid}/role?role=${roleSelect.value}`, { method: 'PUT', headers });
+            document.getElementById('admin-message').innerHTML = res.ok ? '<p class="text-green-500">Papel alterado!</p>' : '<p class="text-red-500">Erro ao alterar papel.</p>';
+        });
+
+        document.getElementById('delete-user-btn').addEventListener('click', async () => {
+            if (confirm(`Tem certeza que deseja excluir o usuário ${targetUser.email}? Esta ação é irreversível.`)) {
+                const res = await fetch(`/api/admin/users/${targetUser.uuid}`, { method: 'DELETE', headers });
+                if(res.ok) {
+                    alert('Usuário excluído com sucesso.');
+                    window.location.href = '/admin/users';
+                } else {
+                     document.getElementById('admin-message').innerHTML = '<p class="text-red-500">Erro ao excluir usuário.</p>';
+                }
+            }
+        });
+    }
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const profileMessage = document.getElementById('profile-message');
+        profileMessage.textContent = '';
+        const body = JSON.stringify({
+            first_name: document.getElementById('first_name').value,
+            last_name: document.getElementById('last_name').value
+        });
+        const res = await fetch('/api/users/me', { method: 'PUT', headers, body });
+        profileMessage.innerHTML = res.ok ? '<p class="text-green-500">Perfil atualizado!</p>' : '<p class="text-red-500">Erro ao atualizar.</p>';
+    });
+
+    document.getElementById('password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const passwordMessage = document.getElementById('password-message');
+        passwordMessage.textContent = '';
+        const old_password = document.getElementById('old_password').value;
+        const new_password = document.getElementById('new_password').value;
+        const response = await fetch('/api/users/me/change-password', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ old_password, new_password })
+        });
+        const data = await response.json();
+        if (response.ok) {
+            passwordMessage.innerHTML = '<p class="text-green-500">Senha alterada com sucesso!</p>';
+            e.target.reset();
+        } else {
+            passwordMessage.innerHTML = `<p class="text-red-500">${data.detail}</p>`;
+        }
+    });
+});
+</script>
+{% endblock %}

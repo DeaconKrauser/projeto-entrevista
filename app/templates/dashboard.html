@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <a href="/contracts-list?status=SUCCESS" class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl hover:border-green-500 border-2 border-transparent transition-all duration-300">
+        <h3 class="text-lg font-semibold text-gray-600">Contratos Analisados</h3>
+        <p id="stats-analyzed" class="text-3xl font-bold text-green-500">0</p>
+    </a>
+    <a href="/contracts-list?status=PENDING" class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl hover:border-yellow-500 border-2 border-transparent transition-all duration-300">
+        <h3 class="text-lg font-semibold text-gray-600">Análises Pendentes</h3>
+        <p id="stats-pending" class="text-3xl font-bold text-yellow-500">0</p>
+    </a>
+    <a href="/contracts-list?status=ERROR" class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl hover:border-red-500 border-2 border-transparent transition-all duration-300">
+        <h3 class="text-lg font-semibold text-gray-600">Análises com Erro</h3>
+        <p id="stats-error" class="text-3xl font-bold text-red-500">0</p>
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Analisar Novo Contrato</h2>
+        <form id="upload-form">
+            <div class="mb-4">
+                <label for="file-input" class="block text-gray-700">Arquivo (.pdf ou .docx)</label>
+                <input type="file" id="file-input" class="w-full px-3 py-2 border rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required accept=".pdf,.docx">
+            </div>
+            <div class="mb-4">
+                <label for="ai-provider" class="block text-gray-700">Provedor de IA</label>
+                <select id="ai-provider" class="w-full px-3 py-2 border rounded-lg">
+                    <option value="gemini">Gemini</option>
+                    <option value="groq">Groq (Simulado)</option>
+                </select>
+            </div>
+            <button type="submit" id="analisar-btn" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition disabled:bg-gray-400">Analisar Contrato</button>
+        </form>
+        <div id="sse-status" class="mt-4 space-y-2 max-h-48 overflow-y-auto"></div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Meus Contratos Recentes</h2>
+        <div id="contract-list" class="space-y-4"></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/'; return; }
+
+    const sseStatus = document.getElementById('sse-status');
+    const contractList = document.getElementById('contract-list');
+    const uploadForm = document.getElementById('upload-form');
+    const analisarBtn = document.getElementById('analisar-btn');
+    const headers = { 'Authorization': `Bearer ${token}` };
+
+    const fetchStats = async () => {
+        try {
+            const response = await fetch('/api/contracts/stats', { headers });
+            if (!response.ok) return;
+            const stats = await response.json();
+            document.getElementById('stats-analyzed').textContent = stats.analyzed;
+            document.getElementById('stats-pending').textContent = stats.pending;
+            document.getElementById('stats-error').textContent = stats.error;
+        } catch (e) { console.error("Falha ao buscar estatísticas:", e); }
+    };
+
+    const fetchContracts = async () => {
+        try {
+            const response = await fetch('/api/contracts', { headers });
+            if (response.status === 401) { localStorage.removeItem('token'); window.location.href = '/'; return; }
+            if (!response.ok) { contractList.innerHTML = '<p class="text-red-500">Erro ao carregar contratos.</p>'; return; }
+            
+            const contracts = await response.json();
+            contractList.innerHTML = '';
+            if (contracts.length === 0) {
+                contractList.innerHTML = '<p class="text-gray-500">Nenhum contrato encontrado.</p>';
+            } else {
+                contracts.slice(0, 5).forEach(contract => {
+                    const cardLink = document.createElement('a');
+                    cardLink.href = `/contracts/${contract.id}/view`;
+                    cardLink.className = 'block p-4 border rounded-lg transition hover:shadow-lg hover:border-blue-500 cursor-pointer';
+                    cardLink.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <p class="font-bold text-gray-800 truncate">${contract.filename}</p>
+                            <span class="text-xs font-semibold px-2 py-1 rounded-full 
+                                ${contract.status === 'SUCCESS' ? 'bg-green-100 text-green-800' : ''}
+                                ${contract.status === 'ERROR' ? 'bg-red-100 text-red-800' : ''}
+                                ${contract.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : ''}
+                            ">${contract.status}</span>
+                        </div>
+                        <p class="text-sm text-gray-500">Analisado em: ${new Date(contract.created_at).toLocaleString('pt-BR')}</p>
+                    `;
+                    contractList.appendChild(cardLink);
+                });
+            }
+        } catch (e) { console.error("Falha ao buscar contratos:", e); }
+    };
+
+    const renderSseMessage = (message, type = 'info') => {
+        const p = document.createElement('p');
+        let icon = '&#128336;'; // Relógio
+        let typeClasses = 'text-gray-700';
+        if(type === 'error') {
+            icon = '&#10060;'; // X
+            typeClasses = 'text-red-600 font-bold';
+        }
+        if(type === 'success') {
+            icon = '&#9989;'; // Checkmark
+            typeClasses = 'text-green-600 font-bold';
+        }
+        p.className = `p-2 bg-gray-50 rounded text-sm flex items-center ${typeClasses}`;
+        p.innerHTML = `<span class="mr-2">${icon}</span> ${message}`;
+        sseStatus.appendChild(p);
+        sseStatus.scrollTop = sseStatus.scrollHeight;
+    };
+
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('file-input');
+        const aiProvider = document.getElementById('ai-provider').value;
+        if (!fileInput.files[0]) {
+            renderSseMessage('Por favor, selecione um arquivo.', 'error');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('ai_provider', aiProvider);
+        
+        sseStatus.innerHTML = '';
+        analisarBtn.disabled = true;
+        analisarBtn.textContent = 'Analisando...';
+        
+        try {
+            const response = await fetch('/api/contracts/upload', { method: 'POST', headers: {'Authorization': `Bearer ${token}`}, body: formData });
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\\n\\n').filter(line => line.startsWith('data:'));
+                lines.forEach(line => {
+                    const message = line.replace('data: ', '').trim();
+                    if (message.startsWith('ERRO')) {
+                         renderSseMessage(message, 'error');
+                    } else if (message.startsWith('Finalizado!')) {
+                        renderSseMessage(message, 'success');
+                        setTimeout(() => {
+                            fetchContracts();
+                            fetchStats();
+                        }, 1000);
+                    } else {
+                        renderSseMessage(message, 'info');
+                    }
+                });
+            }
+        } catch (error) {
+            renderSseMessage('Erro na comunicação com o servidor: ' + error, 'error');
+        } finally {
+            analisarBtn.disabled = false;
+            analisarBtn.textContent = 'Analisar Contrato';
+            fileInput.value = '';
+        }
+    });
+
+    fetchContracts();
+    fetchStats();
+});
+</script>
+{% endblock %}

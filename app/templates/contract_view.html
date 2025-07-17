@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/contracts-list" class="text-blue-600 hover:underline">&larr; Voltar para Meus Contratos</a>
+</div>
+
+<div id="contract-details" class="bg-white p-8 rounded-lg shadow-md min-h-[300px]">
+    <div class="text-center p-8">
+        <p class="text-gray-500">Carregando detalhes do contrato...</p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/';
+        return;
+    }
+    const contractId = {{ contract_id }};
+    const headers = { 'Authorization': `Bearer ${token}` };
+    const container = document.getElementById('contract-details');
+
+    const formatValue = (value) => {
+        if (value === null || value === undefined) {
+            return '<span class="text-gray-500 italic">Não especificado no documento</span>';
+        }
+
+        if (Array.isArray(value)) {
+            if (value.length === 0) return '<span class="text-gray-500 italic">Nenhum item</span>';
+            return value.map(item => `<div>${formatValue(item)}</div>`).join('<div class="h-3"></div>');
+        }
+
+        if (typeof value === 'object') {
+            let objectHtml = '<div class="space-y-1 mt-1 p-4 border rounded bg-gray-50">';
+            for (const [key, val] of Object.entries(value)) {
+                const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                objectHtml += `<p><strong class="font-semibold text-gray-600">${formattedKey}:</strong> <span class="text-gray-800">${val}</span></p>`;
+            }
+            objectHtml += '</div>';
+            return objectHtml;
+        }
+
+        return `<p class="text-gray-800 leading-relaxed">${value}</p>`;
+    };
+
+    const fetchContractDetails = async () => {
+        const response = await fetch(`/api/contracts/${contractId}`, { headers });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: "Erro desconhecido" }));
+            container.innerHTML = `<p class="text-red-500 font-bold">Erro: ${errorData.detail}</p>`;
+            return;
+        }
+
+        const contract = await response.json();
+
+        let detailsHtml = `
+            <div class="border-b pb-4 mb-6 flex justify-between items-start">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800 truncate">${contract.filename}</h1>
+                    <p class="text-sm text-gray-500 mt-1">Status: 
+                        <span class="font-semibold px-2 py-1 text-xs rounded-full
+                            ${contract.status === 'SUCCESS' ? 'bg-green-100 text-green-800' : ''}
+                            ${contract.status === 'ERROR' ? 'bg-red-100 text-red-800' : ''}
+                            ${contract.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : ''}
+                        ">${contract.status}</span>
+                    </p>
+                </div>
+                <button id="delete-contract-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600">Excluir</button>
+            </div>
+        `;
+
+        if (contract.status === 'SUCCESS' && contract.extracted_data) {
+            const data = contract.extracted_data.dados_obrigatorios || contract.extracted_data;
+
+            const keyTranslations = {
+                "partes_envolvidas": "👥 Partes Envolvidas",
+                "valores_monetarios": "💰 Valores Monetários",
+                "obrigações_principais": "📌 Obrigações Principais",
+                "objeto_contrato": "📄 Objeto do Contrato",
+                "vigencia": "🕒 Vigência",
+                "clausula_rescisao": "❌ Cláusula de Rescisão"
+            };
+
+            for (const key in keyTranslations) {
+                if (data.hasOwnProperty(key)) {
+                    const title = keyTranslations[key];
+                    const valueHtml = formatValue(data[key]);
+
+                    let contentHtml = `<div class="text-gray-700 prose max-w-none">${valueHtml}</div>`;
+
+                    // Personalização extra para obrigações
+                    if (key === "obrigações_principais" && typeof data[key] === 'string') {
+                        const [contratada, contratante] = data[key].split(/CONTRATANTE:/).map(s => s.trim());
+                        contentHtml = `
+                            <div class="text-gray-700 space-y-2">
+                                <p><strong class="text-indigo-600">CONTRATADA:</strong> ${contratada.replace(/^CONTRATADA:\s*/, '')}</p>
+                                <p><strong class="text-blue-600">CONTRATANTE:</strong> ${contratante}</p>
+                            </div>
+                        `;
+                    }
+
+                    // Melhor visual para valores monetários
+                    if (key === "valores_monetarios" && Array.isArray(data[key])) {
+                        contentHtml = `
+                            <ul class="list-disc pl-5 text-gray-800 space-y-1">
+                                ${data[key].map(v => `<li><strong>💵</strong> ${v}</li>`).join('')}
+                            </ul>
+                        `;
+                    }
+
+                    detailsHtml += `
+                        <div class="mb-6">
+                            <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-3">${title}</h3>
+                            ${contentHtml}
+                        </div>
+                    `;
+                }
+            }
+        } else if (contract.status === 'ERROR') {
+            detailsHtml += `<div class="bg-red-50 border-l-4 border-red-400 p-4"><div class="flex"><div class="py-1"><svg class="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div><div class="ml-3"><h3 class="text-lg font-semibold text-red-800">Erro na Análise</h3><div class="text-md text-red-700 mt-2"><p>${contract.analysis_summary || 'Um erro inesperado ocorreu.'}</p></div></div></div></div>`;
+        } else {
+            detailsHtml += `<p class="text-gray-600">A análise deste contrato está pendente.</p>`;
+        }
+
+        container.innerHTML = detailsHtml;
+
+        document.getElementById('delete-contract-btn').addEventListener('click', async () => {
+            if (confirm(`Tem certeza que deseja excluir o contrato "${contract.filename}"?`)) {
+                const res = await fetch(`/api/contracts/${contractId}`, { method: 'DELETE', headers });
+                if (res.ok) {
+                    alert('Contrato excluído com sucesso.');
+                    window.location.href = '/contracts-list';
+                } else {
+                    const error = await res.json().catch(() => ({ detail: "Erro ao excluir" }));
+                    alert(`Erro ao excluir: ${error.detail}`);
+                }
+            }
+        });
+    };
+
+    fetchContractDetails();
+});
+</script>
+{% endblock %}
