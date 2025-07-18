@@ -29,7 +29,7 @@ O projeto é construído sobre uma arquitetura moderna e conteinerizada, garanti
 ![Dashboard Principal](images/dashboard.png)
 
 #### Visualização de Contrato
-![Visualização de Contrato](images/contract_view.png)
+![Visualização de Contrato](images/meusContratos.png)
 
 
 ## 4. Instruções de Instalação e Execução
