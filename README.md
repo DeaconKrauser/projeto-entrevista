@@ -20,7 +20,19 @@ O projeto é construído sobre uma arquitetura moderna e conteinerizada, garanti
 -   **Auditoria:** Registro de ações importantes (criação de usuário, exclusão de contrato, etc.) em uma tabela de logs.
 -   **Contêineres:** **Docker** e **Docker Compose** orquestram todos os serviços (`app`, `db`, `cache`), permitindo que toda a aplicação seja iniciada com um único comando.
 
-## 3. Instruções de Instalação e Execução
+## 3. Telas da Aplicação
+
+#### Tela de Login
+![Tela de Login](images/login.png)
+
+#### Dashboard Principal
+![Dashboard Principal](images/dashboard.png)
+
+#### Visualização de Contrato
+![Visualização de Contrato](images/contract_view.png)
+
+
+## 4. Instruções de Instalação e Execução
 
 Siga os passos abaixo para configurar e rodar o ambiente de desenvolvimento.
 
@@ -73,7 +85,7 @@ docker compose exec app python create_admin.py admin@exemplo.com senha_forte_123
 **7. Acesse a Aplicação**
 Após a conclusão dos comandos, a aplicação estará disponível em: **[http://localhost:8000](http://localhost:8000)**. Você pode se logar com o admin criado ou registrar novos usuários (que terão o papel `USER` por padrão).
 
-## 4. Exemplos de Uso da API (cURL)
+## 5. Exemplos de Uso da API (cURL)
 
 Você pode interagir com a API diretamente via linha de comando.
 
