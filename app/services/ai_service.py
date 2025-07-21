@@ -7,52 +7,51 @@ from core.config import GEMINI_API_KEY, GROQ_API_KEY
 genai.configure(api_key=GEMINI_API_KEY)
 
 PROMPT_TEMPLATE = """
-Act like an analista jurídico sênior com 20 anos de experiência em leitura e interpretação de contratos empresariais no Brasil. Você é especializado em extrair dados estruturados com alta precisão, mesmo que o texto esteja mal formatado, contenha termos ambíguos ou jurídicos.
+Aja como um analista jurídico sênior, com mais de 20 anos de experiência em leitura, interpretação e extração de dados de contratos empresariais celebrados no Brasil. Você é especialista em identificar e organizar informações relevantes mesmo em documentos mal formatados, com uso excessivo de jargões legais, ambiguidade ou omissões.
 
-Seu objetivo é analisar cuidadosamente o contrato abaixo e retornar **apenas** um JSON rigorosamente estruturado com os campos abaixo, validando não só os campos obrigatórios, mas também a presença ou ausência de **informações cruciais para a análise contratual**.
+Seu objetivo é analisar cuidadosamente o contrato abaixo e retornar **apenas** um JSON bem estruturado, contendo dois blocos principais: `"dados_obrigatorios"` e `"informacoes_cruciais"`. Cada campo deve refletir fielmente as informações extraídas do contrato. Caso algum dado esteja ausente, registre exatamente: `"Não especificado no documento"`.
 
-### Instruções detalhadas:
+### Etapas da tarefa:
 
-1. Leia e interprete o contrato como um especialista jurídico.
-2. Extraia os campos obrigatórios abaixo.
-3. Adicionalmente, verifique se há informações **cruciais não obrigatórias**, e registre-as separadamente no JSON.
-4. Faça validação cruzada entre os campos extraídos para garantir consistência.
-5. Se alguma informação não estiver presente, registre exatamente: `"Não especificado no documento"`.
+1. Leia o contrato como um profissional jurídico experiente.
+2. Extraia os **dados obrigatórios** listados abaixo.
+3. Verifique e registre também **informações cruciais adicionais**, se estiverem presentes.
+4. Valide a consistência entre os dados extraídos.
+5. Retorne um JSON **válido**, formatado corretamente, sem comentários ou explicações extras.
 
-### Campos obrigatórios (JSON):
-- **"partes_envolvidas"**: Liste todas as partes físicas ou jurídicas envolvidas (contratante, contratado, etc.), incluindo CNPJ ou CPF se disponíveis.
-- **"valores_monetarios"**: Liste todos os valores mencionados, sejam fixos, variáveis, únicos ou recorrentes (ex: “R$ 15.000,00”, “cinco mil reais por mês”).
-- **"obrigações_principais"**: Liste as obrigações principais de cada parte, resumindo em até 2 frases por parte (ex: "A CONTRATADA deverá prestar o serviço XYZ.").
-- **"objeto_contrato"**: Descreva com precisão o propósito central do contrato conforme definido nas cláusulas iniciais ou onde constar o termo "objeto".
-- **"vigencia"**: Registre início, término e/ou informação sobre vigência indeterminada. Se houver renovação automática, indique.
-- **"clausula_rescisao"**: Descreva as condições de rescisão, incluindo prazos, multas e permissões contratuais.
+### Bloco: dados_obrigatorios
+- **"partes_envolvidas"**: Todas as pessoas físicas ou jurídicas mencionadas (ex: contratante, contratado), com CNPJ ou CPF, se disponíveis.
+- **"valores_monetarios"**: Todos os valores citados no contrato, sejam fixos, variáveis, únicos ou recorrentes (ex: "R$ 15.000,00", "cinco mil reais por mês").
+- **"obrigações_principais"**: Resumo das obrigações de cada parte (máximo 2 frases por parte).
+- **"objeto_contrato"**: Descrição clara do objetivo principal do contrato.
+- **"vigencia"**: Informar datas de início e fim da vigência, se é indeterminada, e se há renovação automática.
+- **"clausula_rescisao"**: Condições para rescisão, incluindo prazos, multas e permissões.
 
-### Campos cruciais adicionais (se encontrados):
-- **"foro"**: Local definido para solução de eventuais disputas judiciais.
-- **"reajuste_valores"**: Mecanismos ou índices de reajuste de valores (ex: IPCA, IGPM, periodicidade, fórmulas).
-- **"garantias"**: Quaisquer garantias reais, fidejussórias, cauções ou depósitos previstos.
-- **"multas_penalidades"**: Cláusulas que tratem de penalizações, multas por descumprimento, inadimplência, etc.
-- **"confidencialidade"**: Indicação se há cláusula de sigilo/confidencialidade, total ou parcial.
-- **"renovacao_contrato"**: Se o contrato permite renovação automática ou requer renegociação.
+### Bloco: informacoes_cruciais
+(Incluir apenas se as informações forem encontradas no contrato)
+- **"foro"**: Local definido para resolução de disputas judiciais.
+- **"reajuste_valores"**: Índices ou condições de reajuste (ex: IPCA, IGP-M, periodicidade, fórmulas).
+- **"garantias"**: Cauções, depósitos, garantias reais ou pessoais.
+- **"multas_penalidades"**: Penalidades aplicáveis por inadimplência ou descumprimento contratual.
+- **"confidencialidade"**: Existência de cláusula de sigilo/confidencialidade.
+- **"renovacao_contrato"**: Informação sobre renovação automática ou necessidade de renegociação.
 
 ### Regras finais:
-- O JSON deve conter dois blocos principais: `"dados_obrigatorios"` e `"informacoes_cruciais"`.
-- O JSON deve ser **válido**, bem formatado, e conter apenas texto estruturado (sem comentários, sem explicações).
-- Todas as strings devem estar com aspas duplas (").
-- Caso alguma informação não conste no documento, escreva exatamente: `"Não especificado no documento"`.
+- O JSON deve conter **somente** os dois blocos especificados.
+- Todas as strings devem estar entre **aspas duplas** (`"`).
+- Se uma informação não estiver presente no contrato, registre exatamente: `"Não especificado no documento"`.
 
 ---
 
-Texto do Contrato:
+Texto do contrato a ser analisado:
 ---
 {text}
 ---
-
-Take a deep breath and work on this problem step-by-step.
 """
 
+
 async def _call_gemini(text: str, prompt: str) -> dict:
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-2.0-flash')
     try:
         full_prompt = prompt.format(text=text)
         response = await model.generate_content_async(full_prompt)
